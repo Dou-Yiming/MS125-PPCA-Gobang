@@ -256,9 +256,10 @@ void getLinkPiece(std::pair<int, int> cur, int directionNo, int side, int &len, 
     direction d = dir(directionNo);
     std::pair<int, int> tmp = nextPoint(cur, directionNo, pace);
     linkPoint = cur;
-    while (isInBoard(tmp.first, tmp.second) && board[tmp.first][tmp.second] == side)
+    while (isInBoard(tmp.first, tmp.second) && board[tmp.first][tmp.second] == side /*&& !marked[directionNo][tmp.first][tmp.second]*/)
     {
         linkPoint = tmp;
+        marked[directionNo][tmp.first][tmp.second] = true;
         tmp = nextPoint(tmp, directionNo, pace);
         ++len;
     }
@@ -407,7 +408,7 @@ int singleEvaluation(std::pair<int, int> cur, int side)
 value wholeEvaluation()
 {
     value val;
-
+    /*
     for (register int i = 0; i < 15; ++i)
         for (register int j = 0; j < 15; ++j)
         {
@@ -421,9 +422,9 @@ value wholeEvaluation()
         }
     val.aiValue -= val.humanValue;
     return val;
-
-    std::pair<int, int> left, right;
-    int len;
+*/
+    std::pair<int, int> left, right, tmpLeft, tmpRight;
+    int len, leftLen, rightLen;
     situation curSituation_ai, curSituation_human;
     //横着数
     for (register int i = 0; i < 15; ++i)
@@ -443,13 +444,30 @@ value wholeEvaluation()
             ++right.second;
             ++len;
         }
+
+        tmpLeft.first = left.first;
+        tmpLeft.second = left.second;
+        tmpRight.first = right.first;
+        tmpRight.second = right.second;
+        leftLen = rightLen = 0;
+        while (isInBoard(tmpLeft.first, tmpLeft.second - 1) && board[tmpLeft.first][tmpLeft.second - 1] == -1)
+        {
+            --tmpLeft.second;
+            ++leftLen;
+        }
+        while (isInBoard(tmpRight.first, tmpRight.second + 1) && board[tmpRight.first][tmpRight.second + 1] == -1)
+        {
+            ++tmpRight.second;
+            ++rightLen;
+        }
+
         if (board[left.first][left.second] == ai_side)
         {
             if (len == 5)
                 ++curSituation_ai.win_5;
             else
             {
-                if (isInBoard(right.first, right.second + 1) && board[right.first][right.second + 1] == -1 && isInBoard(left.first, left.second - 1) && board[left.first][left.second - 1])
+                if (leftLen >= 1 && rightLen >= 1 && leftLen + rightLen >= 5 - len)
                     switch (len)
                     {
                     case 4:
@@ -461,7 +479,7 @@ value wholeEvaluation()
                     case 1:
                         ++curSituation_ai.alive_1;
                     }
-                else if ((isInBoard(right.first, right.second + 1) && board[right.first][right.second + 1] == -1) || (isInBoard(left.first, left.second - 1) && board[left.first][left.second - 1] == -1))
+                else if (leftLen + rightLen >= 5 - len)
                 {
                     switch (len)
                     {
@@ -481,7 +499,7 @@ value wholeEvaluation()
                 ++curSituation_human.win_5;
             else
             {
-                if (isInBoard(right.first, right.second + 1) && board[right.first][right.second + 1] == -1 && isInBoard(left.first, left.second - 1) && board[left.first][left.second - 1] == -1)
+                if (leftLen >= 1 && rightLen >= 1 && leftLen + rightLen >= 5 - len)
                     switch (len)
                     {
                     case 4:
@@ -493,7 +511,7 @@ value wholeEvaluation()
                     case 1:
                         ++curSituation_human.alive_1;
                     }
-                else if ((isInBoard(right.first, right.second + 1) && board[right.first][right.second + 1] == -1) || (isInBoard(left.first, left.second - 1) && board[left.first][left.second - 1] == -1))
+                else if (leftLen + rightLen >= 5 - len)
                 {
                     switch (len)
                     {
@@ -532,13 +550,30 @@ value wholeEvaluation()
             ++right.first;
             ++len;
         }
+
+        tmpLeft.first = left.first;
+        tmpLeft.second = left.second;
+        tmpRight.first = right.first;
+        tmpRight.second = right.second;
+        leftLen = rightLen = 0;
+        while (isInBoard(tmpLeft.first - 1, tmpLeft.second) && board[tmpRight.first - 1][tmpLeft.second] == -1)
+        {
+            --tmpLeft.first;
+            ++leftLen;
+        }
+        while (isInBoard(tmpRight.first + 1, tmpRight.second) && board[tmpRight.first + 1][tmpRight.second] == -1)
+        {
+            ++tmpRight.first;
+            ++rightLen;
+        }
+
         if (board[left.first][left.second] == ai_side)
         {
             if (len == 5)
                 ++curSituation_ai.win_5;
             else
             {
-                if (isInBoard(right.first + 1, right.second) && board[right.first + 1][right.second] == -1 && isInBoard(left.first - 1, left.second) && board[left.first - 1][left.second] == -1)
+                if (leftLen >= 1 && rightLen >= 1 && leftLen + rightLen >= 5 - len)
                     switch (len)
                     {
                     case 4:
@@ -550,7 +585,7 @@ value wholeEvaluation()
                     case 1:
                         ++curSituation_ai.alive_1;
                     }
-                else if ((isInBoard(right.first + 1, right.second) && board[right.first + 1][right.second] == -1) || (isInBoard(left.first - 1, left.second) && board[left.first - 1][left.second] == -1))
+                else if (leftLen + rightLen >= 5 - len)
                 {
                     switch (len)
                     {
@@ -570,7 +605,7 @@ value wholeEvaluation()
                 ++curSituation_human.win_5;
             else
             {
-                if (isInBoard(right.first + 1, right.second) && board[right.first + 1][right.second] == -1 && isInBoard(left.first - 1, left.second) && board[left.first - 1][left.second] == -1)
+                if (leftLen >= 1 && rightLen >= 1 && leftLen + rightLen >= 5 - len)
                     switch (len)
                     {
                     case 4:
@@ -582,7 +617,7 @@ value wholeEvaluation()
                     case 1:
                         ++curSituation_human.alive_1;
                     }
-                else if ((isInBoard(right.first + 1, right.second) && board[right.first + 1][right.second] == -1) || (isInBoard(left.first - 1, left.second) && board[left.first - 1][left.second] == -1))
+                else if (leftLen + rightLen >= 5 - len)
                 {
                     switch (len)
                     {
@@ -623,13 +658,32 @@ value wholeEvaluation()
             ++right.second;
             ++len;
         }
+
+        tmpLeft.first = left.first;
+        tmpLeft.second = left.second;
+        tmpRight.first = right.first;
+        tmpRight.second = right.second;
+        leftLen = rightLen = 0;
+        while (isInBoard(tmpLeft.first - 1, tmpLeft.second - 1) && board[tmpRight.first - 1][tmpLeft.second - 1] == -1)
+        {
+            --tmpLeft.first;
+            --tmpLeft.second;
+            ++leftLen;
+        }
+        while (isInBoard(tmpRight.first + 1, tmpRight.second + 1) && board[tmpRight.first + 1][tmpRight.second + 1] == -1)
+        {
+            ++tmpRight.first;
+            ++tmpRight.second;
+            ++rightLen;
+        }
+
         if (board[left.first][left.second] == ai_side)
         {
             if (len == 5)
                 ++curSituation_ai.win_5;
             else
             {
-                if (isInBoard(right.first + 1, right.second + 1) && board[right.first + 1][right.second + 1] == -1 && isInBoard(left.first - 1, left.second - 1) && board[left.first - 1][left.second - 1] == -1)
+                if (leftLen >= 1 && rightLen >= 1 && leftLen + rightLen >= 5 - len)
                     switch (len)
                     {
                     case 4:
@@ -641,7 +695,7 @@ value wholeEvaluation()
                     case 1:
                         ++curSituation_ai.alive_1;
                     }
-                else if ((isInBoard(right.first + 1, right.second + 1) && board[right.first + 1][right.second + 1] == -1) || (isInBoard(left.first - 1, left.second - 1) && board[left.first - 1][left.second - 1] == -1))
+                else if (leftLen + rightLen >= 5 - len)
                 {
                     switch (len)
                     {
@@ -661,7 +715,7 @@ value wholeEvaluation()
                 ++curSituation_human.win_5;
             else
             {
-                if (isInBoard(right.first + 1, right.second + 1) && board[right.first + 1][right.second + 1] == -1 && isInBoard(left.first - 1, left.second - 1) && board[left.first - 1][left.second - 1])
+                if (leftLen >= 1 && rightLen >= 1 && leftLen + rightLen >= 5 - len)
                     switch (len)
                     {
                     case 4:
@@ -673,7 +727,7 @@ value wholeEvaluation()
                     case 1:
                         ++curSituation_human.alive_1;
                     }
-                else if ((isInBoard(right.first + 1, right.second + 1) && board[right.first + 1][right.second + 1] == -1) || (isInBoard(left.first - 1, left.second - 1) && board[left.first - 1][left.second - 1]))
+                else if (leftLen + rightLen >= 5 - len)
                 {
                     switch (len)
                     {
@@ -713,13 +767,32 @@ value wholeEvaluation()
             ++right.second;
             ++len;
         }
+
+        tmpLeft.first = left.first;
+        tmpLeft.second = left.second;
+        tmpRight.first = right.first;
+        tmpRight.second = right.second;
+        leftLen = rightLen = 0;
+        while (isInBoard(tmpLeft.first - 1, tmpLeft.second - 1) && board[tmpRight.first - 1][tmpLeft.second - 1] == -1)
+        {
+            --tmpLeft.first;
+            --tmpLeft.second;
+            ++leftLen;
+        }
+        while (isInBoard(tmpRight.first + 1, tmpRight.second + 1) && board[tmpRight.first + 1][tmpRight.second + 1] == -1)
+        {
+            ++tmpRight.first;
+            ++tmpRight.second;
+            ++rightLen;
+        }
+
         if (board[left.first][left.second] == ai_side)
         {
             if (len == 5)
                 ++curSituation_ai.win_5;
             else
             {
-                if (isInBoard(right.first + 1, right.second + 1) && board[right.first + 1][right.second + 1] == -1 && isInBoard(left.first - 1, left.second - 1) && board[left.first - 1][left.second - 1] == -1)
+                if (leftLen >= 1 && rightLen >= 1 && leftLen + rightLen >= 5 - len)
                     switch (len)
                     {
                     case 4:
@@ -731,7 +804,7 @@ value wholeEvaluation()
                     case 1:
                         ++curSituation_ai.alive_1;
                     }
-                else if ((isInBoard(right.first + 1, right.second + 1) && board[right.first + 1][right.second + 1] == -1) || (isInBoard(left.first - 1, left.second - 1) && board[left.first - 1][left.second - 1] == -1))
+                else if (leftLen + rightLen >= 5 - len)
                 {
                     switch (len)
                     {
@@ -751,7 +824,7 @@ value wholeEvaluation()
                 ++curSituation_human.win_5;
             else
             {
-                if (isInBoard(right.first + 1, right.second + 1) && board[right.first + 1][right.second + 1] == -1 && isInBoard(left.first - 1, left.second - 1) && board[left.first - 1][left.second - 1])
+                if (leftLen >= 1 && rightLen >= 1 && leftLen + rightLen >= 5 - len)
                     switch (len)
                     {
                     case 4:
@@ -763,7 +836,7 @@ value wholeEvaluation()
                     case 1:
                         ++curSituation_human.alive_1;
                     }
-                else if ((isInBoard(right.first + 1, right.second + 1) && board[right.first + 1][right.second + 1] == -1) || (isInBoard(left.first - 1, left.second - 1) && board[left.first - 1][left.second - 1]))
+                else if (leftLen + rightLen >= 5 - len)
                 {
                     switch (len)
                     {
@@ -804,13 +877,32 @@ value wholeEvaluation()
             ++right.second;
             ++len;
         }
+
+        tmpLeft.first = left.first;
+        tmpLeft.second = left.second;
+        tmpRight.first = right.first;
+        tmpRight.second = right.second;
+        leftLen = rightLen = 0;
+        while (isInBoard(tmpLeft.first + 1, tmpLeft.second - 1) && board[tmpRight.first + 1][tmpLeft.second - 1] == -1)
+        {
+            ++tmpLeft.first;
+            --tmpLeft.second;
+            ++leftLen;
+        }
+        while (isInBoard(tmpRight.first - 1, tmpRight.second + 1) && board[tmpRight.first - 1][tmpRight.second + 1] == -1)
+        {
+            --tmpRight.first;
+            ++tmpRight.second;
+            ++rightLen;
+        }
+
         if (board[left.first][left.second] == ai_side)
         {
             if (len == 5)
                 ++curSituation_ai.win_5;
             else
             {
-                if (isInBoard(right.first - 1, right.second + 1) && board[right.first - 1][right.second + 1] == -1 && isInBoard(left.first + 1, left.second - 1) && board[left.first + 1][left.second - 1] == -1)
+                if (leftLen >= 1 && rightLen >= 1 && leftLen + rightLen >= 5 - len)
                     switch (len)
                     {
                     case 4:
@@ -822,7 +914,7 @@ value wholeEvaluation()
                     case 1:
                         ++curSituation_ai.alive_1;
                     }
-                else if ((isInBoard(right.first - 1, right.second + 1) && board[right.first - 1][right.second + 1] == -1) || (isInBoard(left.first + 1, left.second - 1) && board[left.first + 1][left.second - 1] == -1))
+                else if (leftLen + rightLen >= 5 - len)
                 {
                     switch (len)
                     {
@@ -842,7 +934,7 @@ value wholeEvaluation()
                 ++curSituation_human.win_5;
             else
             {
-                if (isInBoard(right.first - 1, right.second + 1) && board[right.first - 1][right.second + 1] == -1 && isInBoard(left.first + 1, left.second - 1) && board[left.first + 1][left.second - 1])
+                if (leftLen >= 1 && rightLen >= 1 && leftLen + rightLen >= 5 - len)
                     switch (len)
                     {
                     case 4:
@@ -854,7 +946,7 @@ value wholeEvaluation()
                     case 1:
                         ++curSituation_human.alive_1;
                     }
-                else if ((isInBoard(right.first - 1, right.second + 1) && board[right.first - 1][right.second + 1] == -1) || (isInBoard(left.first + 1, left.second - 1) && board[left.first + 1][left.second - 1]))
+                else if (leftLen + rightLen >= 5 - len)
                 {
                     switch (len)
                     {
@@ -894,13 +986,32 @@ value wholeEvaluation()
             ++right.second;
             ++len;
         }
+
+        tmpLeft.first = left.first;
+        tmpLeft.second = left.second;
+        tmpRight.first = right.first;
+        tmpRight.second = right.second;
+        leftLen = rightLen = 0;
+        while (isInBoard(tmpLeft.first + 1, tmpLeft.second - 1) && board[tmpRight.first + 1][tmpLeft.second - 1] == -1)
+        {
+            ++tmpLeft.first;
+            --tmpLeft.second;
+            ++leftLen;
+        }
+        while (isInBoard(tmpRight.first - 1, tmpRight.second + 1) && board[tmpRight.first - 1][tmpRight.second + 1] == -1)
+        {
+            --tmpRight.first;
+            ++tmpRight.second;
+            ++rightLen;
+        }
+
         if (board[left.first][left.second] == ai_side)
         {
             if (len == 5)
                 ++curSituation_ai.win_5;
             else
             {
-                if (isInBoard(right.first - 1, right.second + 1) && board[right.first - 1][right.second + 1] == -1 && isInBoard(left.first + 1, left.second - 1) && board[left.first + 1][left.second - 1] == -1)
+                if (leftLen >= 1 && rightLen >= 1 && leftLen + rightLen >= 5 - len)
                     switch (len)
                     {
                     case 4:
@@ -912,7 +1023,7 @@ value wholeEvaluation()
                     case 1:
                         ++curSituation_ai.alive_1;
                     }
-                else if ((isInBoard(right.first - 1, right.second + 1) && board[right.first - 1][right.second + 1] == -1) || (isInBoard(left.first + 1, left.second - 1) && board[left.first + 1][left.second - 1] == -1))
+                else if (leftLen + rightLen >= 5 - len)
                 {
                     switch (len)
                     {
@@ -932,7 +1043,7 @@ value wholeEvaluation()
                 ++curSituation_human.win_5;
             else
             {
-                if (isInBoard(right.first - 1, right.second + 1) && board[right.first - 1][right.second + 1] == -1 && isInBoard(left.first + 1, left.second - 1) && board[left.first + 1][left.second - 1])
+                if (leftLen >= 1 && rightLen >= 1 && leftLen + rightLen >= 5 - len)
                     switch (len)
                     {
                     case 4:
@@ -944,7 +1055,7 @@ value wholeEvaluation()
                     case 1:
                         ++curSituation_human.alive_1;
                     }
-                else if ((isInBoard(right.first - 1, right.second + 1) && board[right.first - 1][right.second + 1] == -1) || (isInBoard(left.first + 1, left.second - 1) && board[left.first + 1][left.second - 1]))
+                else if (leftLen + rightLen >= 5 - len)
                 {
                     switch (len)
                     {
