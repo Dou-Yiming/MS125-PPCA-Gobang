@@ -7,10 +7,11 @@
 #include <random>
 #include <time.h>
 const int DEPTH_LIMIT = 3;
-const int SEARCH_DEPTH = 4;
-const int NEIGHBOUR_SEARCH_WIDTH = 1;
+const int SEARCH_DEPTH = 6;
+const int NEIGHBOUR_SEARCH_WIDTH = 2;
+const int NUM_OF_INSPIRED_SEARCH = 10;
 
-const int AI_WIN_5 = 100000000;
+const int AI_WIN_5 = 100000;
 const int AI_ALIVE_4 = 10000;
 const int AI_ALIVE_3 = 1000;
 const int AI_ALIVE_2 = 100;
@@ -19,7 +20,7 @@ const int AI_DIE_4 = 1000;
 const int AI_DIE_3 = 100;
 const int AI_DIE_2 = 10;
 
-const int HUMAN_WIN_5 = 1000000000;
+const int HUMAN_WIN_5 = 100000;
 const int HUMAN_ALIVE_4 = 10000;
 const int HUMAN_ALIVE_3 = 1000;
 const int HUMAN_ALIVE_2 = 100;
@@ -92,6 +93,13 @@ struct cmp //比较
         return cur1.val.aiValue < cur2.val.aiValue;
     }
 };
+struct _cmp //比较
+{
+    bool operator()(waitPoint &cur1, waitPoint &cur2)
+    {
+        return cur1.val.aiValue > cur2.val.aiValue;
+    }
+};
 /*
 struct node
 {
@@ -116,8 +124,10 @@ std::pair<int, int> nextPoint(std::pair<int, int> cur, int directionNo, int len)
 void getLinkPiece(std::pair<int, int> cur, int directionNo,
                   int side, int &len, int pace, std::pair<int, int> &linkPoint); //寻找邻接点
 void getBoundary(int *left, int *right, std::pair<int, int> l, std::pair<int, int> r,
-                 int directionNo, int side);                                        //获取两边四个位置以内所有信息
-bool judge(std::pair<int, int> cur, int side);                                      //单点检测是否连成五子
+                 int directionNo, int side);   //获取两边四个位置以内所有信息
+bool judge(std::pair<int, int> cur, int side); //单点检测是否连成五子
+bool judge_alive4(std::pair<int, int> cur, int side);
+bool judge_double3(std::pair<int, int> cur, int side);
 situation situationAnalysis(int len, int side, int *left, int *right);              //分析单点情形
 int singleEvaluation(std::pair<int, int> cur, int side);                            //单点估值
 value wholeEvaluation();                                                            //全局估值
@@ -129,6 +139,7 @@ void intelligentRandom(std::pair<int, int> &bestMove, value &val,
                        std::priority_queue<waitPoint, std::vector<waitPoint>, cmp> &q); //智能化随机函数
 value minimax(std::pair<int, int> &bestMove, int depth, int alpha, int beta, int side); //minimax算法
 void flip();                                                                            //换手
+std::priority_queue<waitPoint, std::vector<waitPoint>, cmp> decisiveAction();           //必攻、必防
 
 //init function is called once at the beginning
 void init()
@@ -144,19 +155,16 @@ void init()
 
 std::pair<int, int> action(std::pair<int, int> loc)
 {
-    if (loc.first == -1 && loc.second == -1 && pieceNum == 0)
+    if (loc.first == -1 && pieceNum == 0) //先手
     {
-        place(7, 7, ai_side);
+        place(1,1, ai_side);
         ++turn;
-        return std::make_pair(7, 7);
+        return std::make_pair(1, 1);
     }
-    else if (loc.first == -1 && loc.second == -1) //换手
+    else if (loc.first == -1) //换手
     {
         ++turn;
-        for (register int i = 0; i < 15; ++i)
-            for (register int j = 0; j < 15; ++j)
-                if (board[i][j] != -1)
-                    board[i][j] = 1 - board[i][j];
+        flip();
         goto find;
     }
     place(loc.first, loc.second, 1 - ai_side);
@@ -167,6 +175,13 @@ find:
         place(0, 0, ai_side);
         ++turn;
         return std::make_pair(0, 0);
+    }
+    std::priority_queue<waitPoint, std::vector<waitPoint>, cmp> tmp = decisiveAction();
+    if (!tmp.empty())
+    {
+        place(tmp.top().cur.first, tmp.top().cur.second, ai_side);
+        ++turn;
+        return tmp.top().cur;
     }
     if (turn != 3)
     {
@@ -180,9 +195,9 @@ find:
     {
         std::pair<int, int> bestMove;
         flip();
-        value val1 = wholeEvaluation();
+        value val1 = minimax(bestMove, SEARCH_DEPTH, NEGIFF, IFF, ai_side);
         flip();
-        value val2 = wholeEvaluation();
+        value val2 = minimax(bestMove, SEARCH_DEPTH, NEGIFF, IFF, ai_side);
         if (val1.aiValue > val2.aiValue) //换手
         {
             ++turn;
@@ -301,6 +316,44 @@ bool judge(std::pair<int, int> cur, int side)
     }
     return false;
 }
+bool judge_alive4(std::pair<int, int> cur, int side)
+{
+    situation tmp, res;
+    for (register int i = 1; i <= 4; ++i)
+    {
+        direction d = dir(i);
+        int len = 1;
+        std::pair<int, int> l, r, tmpPoint;
+        int left[5], right[5];
+        getLinkPiece(cur, i, side, len, -1, l);
+        getLinkPiece(cur, i, side, len, 1, r);
+        getBoundary(left, right, l, r, i, side);
+        tmp = situationAnalysis(len, side, left, right);
+        res += tmp;
+    }
+    if (res.alive_4 >= 1)
+        return true;
+    return false;
+}
+bool judge_double3(std::pair<int, int> cur, int side)
+{
+    situation tmp, res;
+    for (register int i = 1; i <= 4; ++i)
+    {
+        direction d = dir(i);
+        int len = 1;
+        std::pair<int, int> l, r, tmpPoint;
+        int left[5], right[5];
+        getLinkPiece(cur, i, side, len, -1, l);
+        getLinkPiece(cur, i, side, len, 1, r);
+        getBoundary(left, right, l, r, i, side);
+        tmp = situationAnalysis(len, side, left, right);
+        res += tmp;
+    }
+    if (res.alive_3 >= 2 || (res.alive_3 >= 1 && res.die_4 >= 1))
+        return true;
+    return false;
+}
 situation situationAnalysis(int len, int side, int *left, int *right)
 {
     situation ans;
@@ -402,27 +455,40 @@ int singleEvaluation(std::pair<int, int> cur, int side)
         ans += 20000000;
     if (res.alive_4 >= 1 || res.d_alive_4 >= 2 || res.alive_3 >= 2 || (res.d_alive_4 >= 1 && res.alive_3 >= 1)) //绝杀
         ans += 10000000;
-    ans += (res.d_alive_4 * 10000 + res.die_4 * 5000 + res.alive_3 * 10000 + res.d_alive_4 * 1000 + res.die_3 * 500 + res.alive_2 * 1000 + res.d_alive_2 * 100 + res.die_2 * 50 + res.alive_1 * 100 + res.d_alive_1 * 10 + res.die_1 * 5);
+    ans += (res.d_alive_4 * 10000 +
+     res.die_4 * 5000 + 
+     res.alive_3 * 10000 + 
+     res.d_alive_4 * 1000 + 
+     res.die_3 * 500 + 
+     res.alive_2 * 1000 + 
+     res.d_alive_2 * 100 + 
+     res.die_2 * 50 + 
+     res.alive_1 * 100 + 
+     res.d_alive_1 * 10 + 
+     res.die_1 * 5);
     return ans;
 }
 value wholeEvaluation()
 {
     value val;
-    /*
-    for (register int i = 0; i < 15; ++i)
+    //situation aiSituation, humanSituation;
+
+    /*for (register int i = 0; i < 15; ++i)
         for (register int j = 0; j < 15; ++j)
         {
             if (!isEmpty(i, j))
             {
                 if (board[i][j] == ai_side)
+                {
                     val.aiValue += singleEvaluation({i, j}, ai_side);
+                }
                 else
                     val.humanValue += singleEvaluation({i, j}, 1 - ai_side);
             }
         }
     val.aiValue -= val.humanValue;
-    return val;
-*/
+    return val;*/
+
     std::pair<int, int> left, right, tmpLeft, tmpRight;
     int len, leftLen, rightLen;
     situation curSituation_ai, curSituation_human;
@@ -472,12 +538,16 @@ value wholeEvaluation()
                     {
                     case 4:
                         ++curSituation_ai.alive_4;
+                        break;
                     case 3:
                         ++curSituation_ai.alive_3;
+                        break;
                     case 2:
                         ++curSituation_ai.alive_2;
+                        break;
                     case 1:
                         ++curSituation_ai.alive_1;
+                        break;
                     }
                 else if (leftLen + rightLen >= 5 - len)
                 {
@@ -485,10 +555,16 @@ value wholeEvaluation()
                     {
                     case 4:
                         ++curSituation_ai.die_4;
+                        break;
                     case 3:
-                        ++curSituation_ai.die_3;
+                        if ((isInBoard(tmpLeft.first, tmpLeft.second - 2) && board[tmpLeft.first][tmpLeft.second - 2] == ai_side) || (isInBoard(tmpRight.first, tmpRight.second + 2) && board[tmpRight.first][tmpRight.second + 2] == ai_side))
+                            ++curSituation_ai.die_4;
+                        else
+                            ++curSituation_ai.die_3;
+                        break;
                     case 2:
                         ++curSituation_ai.die_2;
+                        break;
                     }
                 }
             }
@@ -504,12 +580,16 @@ value wholeEvaluation()
                     {
                     case 4:
                         ++curSituation_human.alive_4;
+                        break;
                     case 3:
                         ++curSituation_human.alive_3;
+                        break;
                     case 2:
                         ++curSituation_human.alive_2;
+                        break;
                     case 1:
                         ++curSituation_human.alive_1;
+                        break;
                     }
                 else if (leftLen + rightLen >= 5 - len)
                 {
@@ -517,10 +597,16 @@ value wholeEvaluation()
                     {
                     case 4:
                         ++curSituation_human.die_4;
+                        break;
                     case 3:
-                        ++curSituation_human.die_3;
+                        if ((isInBoard(tmpLeft.first, tmpLeft.second - 2) && board[tmpLeft.first][tmpLeft.second - 2] == 1 - ai_side) || (isInBoard(tmpRight.first, tmpRight.second + 2) && board[tmpRight.first][tmpRight.second + 2] == 1 - ai_side))
+                            ++curSituation_human.die_4;
+                        else
+                            ++curSituation_human.die_3;
+                        break;
                     case 2:
                         ++curSituation_human.die_2;
+                        break;
                     }
                 }
             }
@@ -556,7 +642,7 @@ value wholeEvaluation()
         tmpRight.first = right.first;
         tmpRight.second = right.second;
         leftLen = rightLen = 0;
-        while (isInBoard(tmpLeft.first - 1, tmpLeft.second) && board[tmpRight.first - 1][tmpLeft.second] == -1)
+        while (isInBoard(tmpLeft.first - 1, tmpLeft.second) && board[tmpLeft.first - 1][tmpLeft.second] == -1)
         {
             --tmpLeft.first;
             ++leftLen;
@@ -578,12 +664,16 @@ value wholeEvaluation()
                     {
                     case 4:
                         ++curSituation_ai.alive_4;
+                        break;
                     case 3:
                         ++curSituation_ai.alive_3;
+                        break;
                     case 2:
                         ++curSituation_ai.alive_2;
+                        break;
                     case 1:
                         ++curSituation_ai.alive_1;
+                        break;
                     }
                 else if (leftLen + rightLen >= 5 - len)
                 {
@@ -591,10 +681,16 @@ value wholeEvaluation()
                     {
                     case 4:
                         ++curSituation_ai.die_4;
+                        break;
                     case 3:
-                        ++curSituation_ai.die_3;
+                        if ((isInBoard(tmpLeft.first - 2, tmpLeft.second) && board[tmpLeft.first - 2][tmpLeft.second] == ai_side) || (isInBoard(tmpRight.first + 2, tmpRight.second) && board[tmpRight.first + 2][tmpRight.second] == ai_side))
+                            ++curSituation_ai.die_4;
+                        else
+                            ++curSituation_ai.die_3;
+                        break;
                     case 2:
                         ++curSituation_ai.die_2;
+                        break;
                     }
                 }
             }
@@ -610,12 +706,16 @@ value wholeEvaluation()
                     {
                     case 4:
                         ++curSituation_human.alive_4;
+                        break;
                     case 3:
                         ++curSituation_human.alive_3;
+                        break;
                     case 2:
                         ++curSituation_human.alive_2;
+                        break;
                     case 1:
                         ++curSituation_human.alive_1;
+                        break;
                     }
                 else if (leftLen + rightLen >= 5 - len)
                 {
@@ -623,10 +723,16 @@ value wholeEvaluation()
                     {
                     case 4:
                         ++curSituation_human.die_4;
+                        break;
                     case 3:
-                        ++curSituation_human.die_3;
+                        if ((isInBoard(tmpLeft.first - 2, tmpLeft.second) && board[tmpLeft.first - 2][tmpLeft.second] == 1 - ai_side) || (isInBoard(tmpRight.first + 2, tmpRight.second) && board[tmpRight.first + 2][tmpRight.second] == 1 - ai_side))
+                            ++curSituation_human.die_4;
+                        else
+                            ++curSituation_human.die_3;
+                        break;
                     case 2:
                         ++curSituation_human.die_2;
+                        break;
                     }
                 }
             }
@@ -664,7 +770,7 @@ value wholeEvaluation()
         tmpRight.first = right.first;
         tmpRight.second = right.second;
         leftLen = rightLen = 0;
-        while (isInBoard(tmpLeft.first - 1, tmpLeft.second - 1) && board[tmpRight.first - 1][tmpLeft.second - 1] == -1)
+        while (isInBoard(tmpLeft.first - 1, tmpLeft.second - 1) && board[tmpLeft.first - 1][tmpLeft.second - 1] == -1)
         {
             --tmpLeft.first;
             --tmpLeft.second;
@@ -688,12 +794,16 @@ value wholeEvaluation()
                     {
                     case 4:
                         ++curSituation_ai.alive_4;
+                        break;
                     case 3:
                         ++curSituation_ai.alive_3;
+                        break;
                     case 2:
                         ++curSituation_ai.alive_2;
+                        break;
                     case 1:
                         ++curSituation_ai.alive_1;
+                        break;
                     }
                 else if (leftLen + rightLen >= 5 - len)
                 {
@@ -701,10 +811,16 @@ value wholeEvaluation()
                     {
                     case 4:
                         ++curSituation_ai.die_4;
+                        break;
                     case 3:
-                        ++curSituation_ai.die_3;
+                        if ((isInBoard(tmpLeft.first - 2, tmpLeft.second - 2) && board[tmpLeft.first - 2][tmpLeft.second - 2] == ai_side) || (isInBoard(tmpRight.first + 2, tmpRight.second + 2) && board[tmpRight.first + 2][tmpRight.second + 2] == ai_side))
+                            ++curSituation_ai.die_4;
+                        else
+                            ++curSituation_ai.die_3;
+                        break;
                     case 2:
                         ++curSituation_ai.die_2;
+                        break;
                     }
                 }
             }
@@ -720,12 +836,16 @@ value wholeEvaluation()
                     {
                     case 4:
                         ++curSituation_human.alive_4;
+                        break;
                     case 3:
                         ++curSituation_human.alive_3;
+                        break;
                     case 2:
                         ++curSituation_human.alive_2;
+                        break;
                     case 1:
                         ++curSituation_human.alive_1;
+                        break;
                     }
                 else if (leftLen + rightLen >= 5 - len)
                 {
@@ -733,10 +853,16 @@ value wholeEvaluation()
                     {
                     case 4:
                         ++curSituation_human.die_4;
+                        break;
                     case 3:
-                        ++curSituation_human.die_3;
+                        if ((isInBoard(tmpLeft.first - 2, tmpLeft.second - 2) && board[tmpLeft.first - 2][tmpLeft.second - 2] == 1 - ai_side) || (isInBoard(tmpRight.first + 2, tmpRight.second + 2) && board[tmpRight.first + 2][tmpRight.second + 2] == 1 - ai_side))
+                            ++curSituation_human.die_4;
+                        else
+                            ++curSituation_human.die_3;
+                        break;
                     case 2:
                         ++curSituation_human.die_2;
+                        break;
                     }
                 }
             }
@@ -773,7 +899,7 @@ value wholeEvaluation()
         tmpRight.first = right.first;
         tmpRight.second = right.second;
         leftLen = rightLen = 0;
-        while (isInBoard(tmpLeft.first - 1, tmpLeft.second - 1) && board[tmpRight.first - 1][tmpLeft.second - 1] == -1)
+        while (isInBoard(tmpLeft.first - 1, tmpLeft.second - 1) && board[tmpLeft.first - 1][tmpLeft.second - 1] == -1)
         {
             --tmpLeft.first;
             --tmpLeft.second;
@@ -797,12 +923,16 @@ value wholeEvaluation()
                     {
                     case 4:
                         ++curSituation_ai.alive_4;
+                        break;
                     case 3:
                         ++curSituation_ai.alive_3;
+                        break;
                     case 2:
                         ++curSituation_ai.alive_2;
+                        break;
                     case 1:
                         ++curSituation_ai.alive_1;
+                        break;
                     }
                 else if (leftLen + rightLen >= 5 - len)
                 {
@@ -810,10 +940,16 @@ value wholeEvaluation()
                     {
                     case 4:
                         ++curSituation_ai.die_4;
+                        break;
                     case 3:
-                        ++curSituation_ai.die_3;
+                        if ((isInBoard(tmpLeft.first - 2, tmpLeft.second - 2) && board[tmpLeft.first - 2][tmpLeft.second - 2] == ai_side) || (isInBoard(tmpRight.first + 2, tmpRight.second + 2) && board[tmpRight.first + 2][tmpRight.second + 2] == ai_side))
+                            ++curSituation_ai.die_4;
+                        else
+                            ++curSituation_ai.die_3;
+                        break;
                     case 2:
                         ++curSituation_ai.die_2;
+                        break;
                     }
                 }
             }
@@ -829,12 +965,16 @@ value wholeEvaluation()
                     {
                     case 4:
                         ++curSituation_human.alive_4;
+                        break;
                     case 3:
                         ++curSituation_human.alive_3;
+                        break;
                     case 2:
                         ++curSituation_human.alive_2;
+                        break;
                     case 1:
                         ++curSituation_human.alive_1;
+                        break;
                     }
                 else if (leftLen + rightLen >= 5 - len)
                 {
@@ -842,10 +982,16 @@ value wholeEvaluation()
                     {
                     case 4:
                         ++curSituation_human.die_4;
+                        break;
                     case 3:
-                        ++curSituation_human.die_3;
+                        if ((isInBoard(tmpLeft.first - 2, tmpLeft.second - 2) && board[tmpLeft.first - 2][tmpLeft.second - 2] == 1 - ai_side) || (isInBoard(tmpRight.first + 2, tmpRight.second + 2) && board[tmpRight.first + 2][tmpRight.second + 2] == 1 - ai_side))
+                            ++curSituation_human.die_4;
+                        else
+                            ++curSituation_human.die_3;
+                        break;
                     case 2:
                         ++curSituation_human.die_2;
+                        break;
                     }
                 }
             }
@@ -883,7 +1029,7 @@ value wholeEvaluation()
         tmpRight.first = right.first;
         tmpRight.second = right.second;
         leftLen = rightLen = 0;
-        while (isInBoard(tmpLeft.first + 1, tmpLeft.second - 1) && board[tmpRight.first + 1][tmpLeft.second - 1] == -1)
+        while (isInBoard(tmpLeft.first + 1, tmpLeft.second - 1) && board[tmpLeft.first + 1][tmpLeft.second - 1] == -1)
         {
             ++tmpLeft.first;
             --tmpLeft.second;
@@ -907,12 +1053,16 @@ value wholeEvaluation()
                     {
                     case 4:
                         ++curSituation_ai.alive_4;
+                        break;
                     case 3:
                         ++curSituation_ai.alive_3;
+                        break;
                     case 2:
                         ++curSituation_ai.alive_2;
+                        break;
                     case 1:
                         ++curSituation_ai.alive_1;
+                        break;
                     }
                 else if (leftLen + rightLen >= 5 - len)
                 {
@@ -920,10 +1070,16 @@ value wholeEvaluation()
                     {
                     case 4:
                         ++curSituation_ai.die_4;
+                        break;
                     case 3:
-                        ++curSituation_ai.die_3;
+                        if ((isInBoard(tmpLeft.first + 2, tmpLeft.second - 2) && board[tmpLeft.first + 2][tmpLeft.second - 2] == ai_side) || (isInBoard(tmpRight.first - 2, tmpRight.second + 2) && board[tmpRight.first - 2][tmpRight.second + 2] == ai_side))
+                            ++curSituation_ai.die_4;
+                        else
+                            ++curSituation_ai.die_3;
+                        break;
                     case 2:
                         ++curSituation_ai.die_2;
+                        break;
                     }
                 }
             }
@@ -939,12 +1095,16 @@ value wholeEvaluation()
                     {
                     case 4:
                         ++curSituation_human.alive_4;
+                        break;
                     case 3:
                         ++curSituation_human.alive_3;
+                        break;
                     case 2:
                         ++curSituation_human.alive_2;
+                        break;
                     case 1:
                         ++curSituation_human.alive_1;
+                        break;
                     }
                 else if (leftLen + rightLen >= 5 - len)
                 {
@@ -952,10 +1112,16 @@ value wholeEvaluation()
                     {
                     case 4:
                         ++curSituation_human.die_4;
+                        break;
                     case 3:
-                        ++curSituation_human.die_3;
+                        if ((isInBoard(tmpLeft.first + 2, tmpLeft.second - 2) && board[tmpLeft.first + 2][tmpLeft.second - 2] == 1 - ai_side) || (isInBoard(tmpRight.first - 2, tmpRight.second + 2) && board[tmpRight.first - 2][tmpRight.second + 2] == 1 - ai_side))
+                            ++curSituation_human.die_4;
+                        else
+                            ++curSituation_human.die_3;
+                        break;
                     case 2:
                         ++curSituation_human.die_2;
+                        break;
                     }
                 }
             }
@@ -967,6 +1133,7 @@ value wholeEvaluation()
         }
     nextLoop5:;
     }
+
     for (register int i = 1; i < 15; ++i)
     {
         left = std::make_pair(14, i);
@@ -992,7 +1159,7 @@ value wholeEvaluation()
         tmpRight.first = right.first;
         tmpRight.second = right.second;
         leftLen = rightLen = 0;
-        while (isInBoard(tmpLeft.first + 1, tmpLeft.second - 1) && board[tmpRight.first + 1][tmpLeft.second - 1] == -1)
+        while (isInBoard(tmpLeft.first + 1, tmpLeft.second - 1) && board[tmpLeft.first + 1][tmpLeft.second - 1] == -1)
         {
             ++tmpLeft.first;
             --tmpLeft.second;
@@ -1016,12 +1183,16 @@ value wholeEvaluation()
                     {
                     case 4:
                         ++curSituation_ai.alive_4;
+                        break;
                     case 3:
                         ++curSituation_ai.alive_3;
+                        break;
                     case 2:
                         ++curSituation_ai.alive_2;
+                        break;
                     case 1:
                         ++curSituation_ai.alive_1;
+                        break;
                     }
                 else if (leftLen + rightLen >= 5 - len)
                 {
@@ -1029,10 +1200,16 @@ value wholeEvaluation()
                     {
                     case 4:
                         ++curSituation_ai.die_4;
+                        break;
                     case 3:
-                        ++curSituation_ai.die_3;
+                        if ((isInBoard(tmpLeft.first + 2, tmpLeft.second - 2) && board[tmpLeft.first + 2][tmpLeft.second - 2] == ai_side) || (isInBoard(tmpRight.first - 2, tmpRight.second + 2) && board[tmpRight.first - 2][tmpRight.second + 2] == ai_side))
+                            ++curSituation_ai.die_4;
+                        else
+                            ++curSituation_ai.die_3;
+                        break;
                     case 2:
                         ++curSituation_ai.die_2;
+                        break;
                     }
                 }
             }
@@ -1048,12 +1225,16 @@ value wholeEvaluation()
                     {
                     case 4:
                         ++curSituation_human.alive_4;
+                        break;
                     case 3:
                         ++curSituation_human.alive_3;
+                        break;
                     case 2:
                         ++curSituation_human.alive_2;
+                        break;
                     case 1:
                         ++curSituation_human.alive_1;
+                        break;
                     }
                 else if (leftLen + rightLen >= 5 - len)
                 {
@@ -1061,10 +1242,16 @@ value wholeEvaluation()
                     {
                     case 4:
                         ++curSituation_human.die_4;
+                        break;
                     case 3:
-                        ++curSituation_human.die_3;
+                        if ((isInBoard(tmpLeft.first + 2, tmpLeft.second - 2) && board[tmpLeft.first + 2][tmpLeft.second - 2] == 1 - ai_side) || (isInBoard(tmpRight.first - 2, tmpRight.second + 2) && board[tmpRight.first - 2][tmpRight.second + 2] == 1 - ai_side))
+                            ++curSituation_human.die_4;
+                        else
+                            ++curSituation_human.die_3;
+                        break;
                     case 2:
                         ++curSituation_human.die_2;
+                        break;
                     }
                 }
             }
@@ -1101,12 +1288,45 @@ bool hasNeighbour(std::pair<int, int> cur, int side)
 std::vector<std::pair<int, int>> inspiredSearch(int side)
 {
     std::vector<std::pair<int, int>> ans;
-    for (register int i = 0; i < 15; ++i)
-        for (register int j = 0; j < 15; ++j)
+    if (side == ai_side)
+    {
+        std::priority_queue<waitPoint, std::vector<waitPoint>, cmp> q;
+        for (register int i = 0; i < 15; ++i)
+            for (register int j = 0; j < 15; ++j)
+            {
+                if (isEmpty(i, j) && hasNeighbour(std::make_pair(i, j), side))
+                {
+                    place(i, j, side);
+                    q.push(waitPoint(wholeEvaluation(), {i, j}));
+                    unplace(i, j);
+                }
+            }
+        for (register int i = 0; i < NUM_OF_INSPIRED_SEARCH; ++i)
         {
-            if (isEmpty(i, j) && hasNeighbour(std::make_pair(i, j), side))
-                ans.push_back({i, j});
+            ans.push_back(q.top().cur);
+            q.pop();
         }
+    }
+    else
+    {
+        std::priority_queue<waitPoint, std::vector<waitPoint>, _cmp> q;
+        for (register int i = 0; i < 15; ++i)
+            for (register int j = 0; j < 15; ++j)
+            {
+                if (isEmpty(i, j) && hasNeighbour(std::make_pair(i, j), 1 - side))
+                {
+                    place(i, j, 1 - side);
+                    q.push(waitPoint(wholeEvaluation(), {i, j}));
+                    unplace(i, j);
+                }
+            }
+        for (register int i = 0; i < NUM_OF_INSPIRED_SEARCH; ++i)
+        {
+            ans.push_back(q.top().cur);
+            q.pop();
+        }
+    }
+
     return ans;
 }
 value findAiMove(std::pair<int, int> &bestMove, int depth, int alpha, int beta)
@@ -1257,4 +1477,104 @@ void flip()
         for (register int j = 0; j < 15; ++j)
             if (board[i][j] != -1)
                 board[i][j] = 1 - board[i][j];
+}
+std::priority_queue<waitPoint, std::vector<waitPoint>, cmp> decisiveAction()
+{
+    //return std::make_pair(-1, -1);
+    std::priority_queue<waitPoint, std::vector<waitPoint>, cmp> q;
+    for (register int i = 0; i < 15; ++i)
+        for (register int j = 0; j < 15; ++j)
+        {
+            if (isEmpty(i, j))
+            {
+                place(i, j, ai_side);
+                if (judge(std::make_pair(i, j), ai_side))
+                {
+                    q.push(waitPoint(wholeEvaluation(), {i, j}));
+                }
+                unplace(i, j);
+            }
+        }
+    if (!q.empty())
+        return q;
+    for (register int i = 0; i < 15; ++i)
+        for (register int j = 0; j < 15; ++j)
+        {
+            if (isEmpty(i, j))
+            {
+                place(i, j, 1 - ai_side);
+                if (judge(std::make_pair(i, j), 1 - ai_side))
+                {
+                    board[i][j] = ai_side;
+                    q.push(waitPoint(wholeEvaluation(), {i, j}));
+                }
+                unplace(i, j);
+            }
+        }
+    if (!q.empty())
+        return q;
+
+    for (register int i = 0; i < 15; ++i)
+        for (register int j = 0; j < 15; ++j)
+        {
+            if (isEmpty(i, j))
+            {
+                place(i, j, ai_side);
+                if (judge_alive4({i, j}, ai_side))
+                {
+                    q.push(waitPoint(wholeEvaluation(), {i, j}));
+                }
+                unplace(i, j);
+            }
+        }
+    if (!q.empty())
+        return q;
+    for (register int i = 0; i < 15; ++i)
+        for (register int j = 0; j < 15; ++j)
+        {
+            if (isEmpty(i, j))
+            {
+                place(i, j, 1 - ai_side);
+                if (judge_alive4({i, j}, 1 - ai_side))
+                {
+                    board[i][j] = ai_side;
+                    q.push(waitPoint(wholeEvaluation(), {i, j}));
+                }
+                unplace(i, j);
+            }
+        }
+    if (!q.empty())
+        return q;
+
+    for (register int i = 0; i < 15; ++i)
+        for (register int j = 0; j < 15; ++j)
+        {
+            if (isEmpty(i, j))
+            {
+                place(i, j, ai_side);
+                if (judge_double3({i, j}, ai_side))
+                {
+                    q.push(waitPoint(wholeEvaluation(), {i, j}));
+                }
+                unplace(i, j);
+            }
+        }
+    if (!q.empty())
+        return q;
+
+    for (register int i = 0; i < 15; ++i)
+        for (register int j = 0; j < 15; ++j)
+        {
+            if (isEmpty(i, j))
+            {
+                place(i, j, 1 - ai_side);
+                if (judge_double3({i, j}, 1 - ai_side))
+                {
+                    board[i][j] = ai_side;
+                    q.push(waitPoint(wholeEvaluation(), {i, j}));
+                }
+                unplace(i, j);
+            }
+        }
+    return q;
 }
