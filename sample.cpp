@@ -100,21 +100,6 @@ struct _cmp //比较
         return cur1.val.aiValue > cur2.val.aiValue;
     }
 };
-/*
-struct node
-{
-    int val;
-    int alpha, beta;
-    node *child[225];
-};
-
-int minimax(node *pos, int depth, int alpha, int beta, bool is_maximizing_player)
-{
-    if (depth == 0)
-        return;
-    
-}
-*/
 bool isEmpty(int x, int y);                                                       //判断（x，y）是否为空
 bool isFull();                                                                    //判断棋盘是否已满
 bool isInBoard(int x, int y);                                                     //判断位置合法性
@@ -141,23 +126,16 @@ value minimax(std::pair<int, int> &bestMove, int depth, int alpha, int beta, int
 void flip();                                                                            //换手
 std::priority_queue<waitPoint, std::vector<waitPoint>, cmp> decisiveAction();           //必攻、必防
 
-//init function is called once at the beginning
 void init()
 {
-    /* TODO: Replace this by your code */
     turn = 0;
     memset(board, -1, sizeof(board));
 }
-
-// loc is the action of your opponent
-// Initially, loc being (-1,-1) means it's your first move
-// If this is the third step(with 2 black ), where you can use the swap rule, your output could be either (-1, -1) to indicate that you choose a swap, or a coordinate (x,y) as normal.
-
 std::pair<int, int> action(std::pair<int, int> loc)
 {
     if (loc.first == -1 && pieceNum == 0) //先手
     {
-        place(1,1, ai_side);
+        place(1, 1, ai_side);
         ++turn;
         return std::make_pair(1, 1);
     }
@@ -247,16 +225,12 @@ direction dir(int i)
     {
     case 1:
         return dir1;
-        break;
     case 2:
         return dir2;
-        break;
     case 3:
         return dir3;
-        break;
     case 4:
         return dir4;
-        break;
     }
 }
 std::pair<int, int> nextPoint(std::pair<int, int> cur, int directionNo, int len)
@@ -456,39 +430,21 @@ int singleEvaluation(std::pair<int, int> cur, int side)
     if (res.alive_4 >= 1 || res.d_alive_4 >= 2 || res.alive_3 >= 2 || (res.d_alive_4 >= 1 && res.alive_3 >= 1)) //绝杀
         ans += 10000000;
     ans += (res.d_alive_4 * 10000 +
-     res.die_4 * 5000 + 
-     res.alive_3 * 10000 + 
-     res.d_alive_4 * 1000 + 
-     res.die_3 * 500 + 
-     res.alive_2 * 1000 + 
-     res.d_alive_2 * 100 + 
-     res.die_2 * 50 + 
-     res.alive_1 * 100 + 
-     res.d_alive_1 * 10 + 
-     res.die_1 * 5);
+            res.die_4 * 5000 +
+            res.alive_3 * 10000 +
+            res.d_alive_4 * 1000 +
+            res.die_3 * 500 +
+            res.alive_2 * 1000 +
+            res.d_alive_2 * 100 +
+            res.die_2 * 50 +
+            res.alive_1 * 100 +
+            res.d_alive_1 * 10 +
+            res.die_1 * 5);
     return ans;
 }
 value wholeEvaluation()
 {
     value val;
-    //situation aiSituation, humanSituation;
-
-    /*for (register int i = 0; i < 15; ++i)
-        for (register int j = 0; j < 15; ++j)
-        {
-            if (!isEmpty(i, j))
-            {
-                if (board[i][j] == ai_side)
-                {
-                    val.aiValue += singleEvaluation({i, j}, ai_side);
-                }
-                else
-                    val.humanValue += singleEvaluation({i, j}, 1 - ai_side);
-            }
-        }
-    val.aiValue -= val.humanValue;
-    return val;*/
-
     std::pair<int, int> left, right, tmpLeft, tmpRight;
     int len, leftLen, rightLen;
     situation curSituation_ai, curSituation_human;
